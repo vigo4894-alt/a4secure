@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>a4secure — подключить прокси для telegram</title>
+<meta name="description" content="бесплатный прокси для telegram, если приложение перестало коннектиться">
+<meta name="theme-color" content="#0a0e0f">
+<meta name="robots" content="noindex">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0a0e0f;
+    --bg-elevated: #11161a;
+    --surface: #161c20;
+    --surface-hover: #1c2429;
+    --border: #232c32;
+    --border-strong: #2f3a42;
+    --text: #e8edef;
+    --text-muted: #8b969d;
+    --text-faint: #5a6166;
+    --accent: #ed5757;
+    --accent-hover: #d94545;
+    --accent-faint: rgba(237, 87, 87, 0.08);
+    --tg-blue: #2aabee;
+    --tg-blue-hover: #1e95d4;
+    --aurora-1: rgba(64, 255, 200, 0.06);
+    --aurora-2: rgba(120, 90, 255, 0.05);
+    --green: #4ade80;
+    --font-sans: 'Manrope', -apple-system, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, var(--aurora-1), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, var(--aurora-2), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 64px 64px;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black, transparent);
+  }
+
+  .canvas {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 24px;
+  }
+
+  /* ─── header ─── */
+  header.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-name {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.03em;
+  }
+
+  .brand-name .accent {
+    color: var(--accent);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+  }
+
+  /* ─── main ─── */
+  main {
+    display: grid;
+    place-items: center;
+    padding: 48px 0;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.1s forwards;
+  }
+
+  .lede {
+    color: var(--text-muted);
+    font-size: 15px;
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.2s forwards;
+  }
+
+  .connect-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 16px 24px;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: background 0.15s, transform 0.1s;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.3s forwards;
+  }
+
+  .connect-btn:hover { background: var(--accent-hover); }
+  .connect-btn:active { transform: scale(0.99); }
+
+  .tg-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ─── divider ─── */
+  .divider {
+    margin: 32px 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--text-faint);
+    font-weight: 500;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.4s forwards;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── fields ─── */
+  .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.5s forwards;
+  }
+
+  .field {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .field:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-hover);
+  }
+
+  .field-label {
+    font-size: 13px;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+
+  .field-value {
+    font-size: 14px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+  }
+
+  .copy-btn.copied {
+    color: var(--green);
+    border-color: var(--green);
+    background: rgba(74, 222, 128, 0.08);
+  }
+
+  /* ─── instructions ─── */
+  .instructions {
+    margin-top: 24px;
+    padding: 16px 18px;
+    background: var(--accent-faint);
+    border-radius: 8px;
+    border-left: 2px solid var(--accent);
+    font-size: 13px;
+    color: var(--text-muted);
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.6s forwards;
+  }
+
+  .instructions strong {
+    color: var(--text);
+    font-weight: 600;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .path {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.7;
+    font-weight: 500;
+  }
+
+  .path-arrow {
+    color: var(--text-faint);
+    margin: 0 4px;
+    font-weight: 400;
+  }
+
+  /* ─── screenshot ─── */
+  .screenshot-wrap {
+    margin: 18px 0 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .screenshot {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .screenshot-caption {
+    font-size: 12px;
+    color: var(--text-faint);
+    text-align: center;
+    line-height: 1.4;
+    max-width: 280px;
+  }
+
+  .screenshot-caption b {
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* ─── channel CTA ─── */
+  .channel-cta {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.7s forwards;
+  }
+
+  .channel-cta:hover {
+    border-color: var(--accent);
+    background: var(--surface-hover);
+  }
+
+  .channel-cta:active { transform: scale(0.995); }
+
+  .channel-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .channel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-blue), var(--tg-blue-hover));
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .channel-icon svg {
+    width: 20px;
+    height: 20px;
+    color: #fff;
+  }
+
+  .channel-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .channel-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .channel-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .channel-arrow {
+    color: var(--text-faint);
+    font-size: 18px;
+    transition: transform 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .channel-cta:hover .channel-arrow {
+    transform: translateX(3px);
+    color: var(--accent);
+  }
+
+  /* ─── footer ─── */
+  footer {
+    text-align: center;
+    padding: 16px 0 8px;
+    font-size: 12px;
+    color: var(--text-faint);
+    opacity: 0;
+    animation: fadeUp 0.6s ease-out 0.8s forwards;
+  }
+
+  footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+    font-weight: 500;
+  }
+
+  footer a:hover { color: var(--accent); }
+
+  .sep {
+    color: var(--text-faint);
+    margin: 0 10px;
+  }
+
+  /* ─── animations ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── responsive ─── */
+  @media (max-width: 540px) {
+    .canvas { padding: 16px; }
+    .card { padding: 28px 20px; }
+    h1 { font-size: 26px; }
+    .lede { font-size: 14px; }
+    .field { grid-template-columns: 64px 1fr auto; gap: 10px; padding: 12px 14px; }
+    .field-value { font-size: 13px; }
+  }
+
+  @media (max-width: 380px) {
+    .field { grid-template-columns: 1fr auto; }
+    .field-label { grid-column: 1 / -1; margin-bottom: -2px; font-size: 12px; }
+  }
+</style>
+</head>
+
+<body>
+  <div class="canvas">
+
+    <header class="top">
+      <div class="brand">
+        <span class="brand-name">A<span class="accent">4</span>VPN</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="card">
+        <h1>починить telegram</h1>
+        <p class="lede">это бесплатный прокси для telegram. если приложение не открывается или не обновляет сообщения — нажмите кнопку ниже, затем в telegram нажмите «подключить». всё заработает.</p>
+
+        <button class="connect-btn" id="connect-btn">
+          <svg class="tg-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.37.18 1.09 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/>
+          </svg>
+          <span>подключить</span>
+        </button>
+
+        <div class="divider">или вручную</div>
+
+        <div class="fields">
+          <div class="field">
+            <span class="field-label">сервер</span>
+            <span class="field-value" id="srv">cave.ax0lotl.vip</span>
+            <button class="copy-btn" data-target="srv">копировать</button>
+          </div>
+          <div class="field">
+            <span class="field-label">порт</span>
+            <span class="field-value" id="prt">443</span>
+            <button class="copy-btn" data-target="prt">копировать</button>
+          </div>
+          <div class="field">
+            <span class="field-label">секрет</span>
+            <span class="field-value" id="sec">ee1d394af488bdceecfbf16e49d97fe004636176652e6178306c6f746c2e766970</span>
+            <button class="copy-btn" data-target="sec">копировать</button>
+          </div>
+        </div>
+
+        <div class="instructions">
+          <strong>как добавить вручную</strong>
+          <div class="path">
+            открыть telegram <span class="path-arrow">→</span> настройки <span class="path-arrow">→</span> данные и память <span class="path-arrow">→</span> прокси <span class="path-arrow">→</span> добавить
+          </div>
+          <figure class="screenshot-wrap">
+            <img src="proxy-screen.jpg" alt="экран настройки прокси в telegram" class="screenshot" loading="lazy">
+            <figcaption class="screenshot-caption">выбрать <b>mtproto</b> и вписать параметры сверху</figcaption>
+          </figure>
+        </div>
+
+        <a class="channel-cta" href="https://t.me/a4secure" target="_blank" rel="noopener">
+          <div class="channel-info">
+            <div class="channel-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.37.18 1.09 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/>
+              </svg>
+            </div>
+            <div class="channel-text">
+              <span class="channel-name">наш канал @a4secure</span>
+              <span class="channel-sub">обновления и резервные прокси</span>
+            </div>
+          </div>
+          <span class="channel-arrow">→</span>
+        </a>
+      </div>
+    </main>
+
+    <footer>
+      <a href="https://t.me/a4support">поддержка</a>
+      <span class="sep">·</span>
+      <a href="https://t.me/a4securebot">vpn</a>
+    </footer>
+
+  </div>
+
+<script>
+  const PROXY = {
+    server: 'cave.ax0lotl.vip',
+    port: '443',
+    secret: 'ee1d394af488bdceecfbf16e49d97fe004636176652e6178306c6f746c2e766970'
+  };
+
+  const proxyUrl = `tg://proxy?server=${PROXY.server}&port=${PROXY.port}&secret=${PROXY.secret}`;
+
+  document.getElementById('connect-btn').addEventListener('click', () => {
+    window.location.href = proxyUrl;
+  });
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const target = document.getElementById(btn.dataset.target);
+      const text = target.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        const range = document.createRange();
+        range.selectNode(target);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+      }
+      btn.textContent = 'скопировано';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'копировать';
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  });
+</script>
+</body>
+</html>
